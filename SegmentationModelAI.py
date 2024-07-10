@@ -16,6 +16,7 @@ class ImageProcessor:
         Preprocess the input image by resizing, normalizing, and converting to tensor.
         """
         image = ImageProcessor.load_image(image)
+        ImageProcessor.validate_image(image)
         transform = ImageProcessor.get_transform(size)
         return transform(image).unsqueeze(0)
 
@@ -74,6 +75,34 @@ class ImageProcessor:
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
 
+    @staticmethod
+    def validate_image(image):
+        """
+        Validate the loaded image for expected dimensions and format.
+        """
+        if not isinstance(image, Image.Image):
+            raise TypeError("Input is not a valid PIL Image.")
+        if image.mode != 'RGB':
+            image = image.convert('RGB')  # Convert to RGB if not already
+        width, height = image.size
+        if width < 1 or height < 1:
+            raise ValueError("Image dimensions are invalid.")
+        # Add additional validation as needed
+
+    @staticmethod
+    def validate_tensor(tensor):
+        """
+        Validate the input tensor meets expected criteria.
+        """
+        if not isinstance(tensor, torch.Tensor):
+            raise TypeError("Input is not a valid PyTorch tensor.")
+        if tensor.ndim != 4:
+            raise ValueError("Input tensor dimensions are invalid. Expected 4D tensor.")
+
+        # Add additional validation for tensor shape, dtype, etc.
+
+        return tensor
+
 
 class BaseModel(ABC):
     def __init__(self, model, input_size=(512, 512)):
@@ -122,6 +151,7 @@ class TorchModel(BaseModel):
         Run inference using the PyTorch model.
         """
         try:
+            input_tensor = ImageProcessor.validate_tensor(input_tensor)
             self.model.eval()
             with torch.no_grad():
                 output = self.model(input_tensor)
@@ -149,6 +179,7 @@ class ONNXModel(BaseModel):
         Run inference using the ONNX model.
         """
         try:
+            input_tensor = ImageProcessor.validate_tensor(input_tensor)
             ort_inputs = {self.model.get_inputs()[0].name: input_tensor.numpy()}
             ort_outputs = self.model.run(None, ort_inputs)
             return ort_outputs[0]
@@ -175,6 +206,7 @@ class TensorFlowModel(BaseModel):
         Run inference using the TensorFlow model.
         """
         try:
+            input_tensor = ImageProcessor.validate_tensor(input_tensor)
             # Convert PyTorch tensor to NumPy array for TensorFlow
             input_array = input_tensor.numpy()
             input_array = tf.convert_to_tensor(input_array)
@@ -202,10 +234,13 @@ class SegmentationModelAI:
         Perform inference on the given image.
         """
         try:
+            image = ImageProcessor.load_image(image)
+            ImageProcessor.validate_image(image)
             input_tensor = ImageProcessor.preprocess_image(image, self.input_size)
             return self.model.infer(input_tensor)
         except Exception as e:
             raise RuntimeError(f"Error during model inference: {e}")
+
 
 
 def get_torch_segmentation_model():
