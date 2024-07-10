@@ -15,25 +15,46 @@ class ImageProcessor:
         """
         Preprocess the input image by resizing, normalizing, and converting to tensor.
         """
+        image = ImageProcessor.load_image(image)
         transform = ImageProcessor.get_transform(size)
+        return transform(image).unsqueeze(0)
 
+    @staticmethod
+    def load_image(image):
+        """
+        Load the image from different formats (path, URL, bytes, PIL Image, torch Tensor).
+        """
         if isinstance(image, str):
-            if image.startswith('http://') or image.startswith('https://'):
-                response = requests.get(image)
-                image = Image.open(BytesIO(response.content)).convert('RGB')
-            else:
-                image = Image.open(image).convert('RGB')
+            return ImageProcessor.load_image_from_path_or_url(image)
         elif isinstance(image, bytes):
-            image = Image.open(BytesIO(image)).convert('RGB')
+            return ImageProcessor.load_image_from_bytes(image)
         elif isinstance(image, Image.Image):
-            image = image.convert('RGB')
+            return image.convert('RGB')
         elif isinstance(image, torch.Tensor):
             return image  # Assuming tensor is already preprocessed
         else:
             raise TypeError(
-                "Unsupported image type. Expected str (file path or URL), bytes, PIL.Image.Image, or torch.Tensor.")
+                "Unsupported image type. Expected str (file path or URL), bytes, PIL.Image.Image, or torch.Tensor."
+            )
 
-        return transform(image).unsqueeze(0)
+    @staticmethod
+    def load_image_from_path_or_url(image_path_or_url):
+        """
+        Load the image from a file path or URL.
+        """
+        if image_path_or_url.startswith('http://') or image_path_or_url.startswith('https://'):
+            response = requests.get(image_path_or_url)
+            image = Image.open(BytesIO(response.content)).convert('RGB')
+        else:
+            image = Image.open(image_path_or_url).convert('RGB')
+        return image
+
+    @staticmethod
+    def load_image_from_bytes(image_bytes):
+        """
+        Load the image from bytes.
+        """
+        return Image.open(BytesIO(image_bytes)).convert('RGB')
 
     @staticmethod
     def get_transform(size):
