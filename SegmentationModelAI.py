@@ -42,19 +42,26 @@ class ImageProcessor:
         """
         Load the image from a file path or URL.
         """
-        if image_path_or_url.startswith('http://') or image_path_or_url.startswith('https://'):
-            response = requests.get(image_path_or_url)
-            image = Image.open(BytesIO(response.content)).convert('RGB')
-        else:
-            image = Image.open(image_path_or_url).convert('RGB')
-        return image
+        try:
+            if image_path_or_url.startswith('http://') or image_path_or_url.startswith('https://'):
+                response = requests.get(image_path_or_url)
+                response.raise_for_status()  # Raise an HTTPError for bad responses
+                image = Image.open(BytesIO(response.content)).convert('RGB')
+            else:
+                image = Image.open(image_path_or_url).convert('RGB')
+            return image
+        except Exception as e:
+            raise RuntimeError(f"Error loading image from path or URL: {e}")
 
     @staticmethod
     def load_image_from_bytes(image_bytes):
         """
         Load the image from bytes.
         """
-        return Image.open(BytesIO(image_bytes)).convert('RGB')
+        try:
+            return Image.open(BytesIO(image_bytes)).convert('RGB')
+        except Exception as e:
+            raise RuntimeError(f"Error loading image from bytes: {e}")
 
     @staticmethod
     def get_transform(size):
@@ -114,10 +121,13 @@ class TorchModel(BaseModel):
         """
         Run inference using the PyTorch model.
         """
-        self.model.eval()
-        with torch.no_grad():
-            output = self.model(input_tensor)
-        return output
+        try:
+            self.model.eval()
+            with torch.no_grad():
+                output = self.model(input_tensor)
+            return output
+        except Exception as e:
+            raise RuntimeError(f"Error during PyTorch model inference: {e}")
 
 
 @ModelRegistry.register('onnx')
@@ -126,8 +136,10 @@ class ONNXModel(BaseModel):
         if isinstance(model, str):
             try:
                 model = ort.InferenceSession(model)
-            except Exception as e:
+            except (IOError, ort.OrtInvalidModel, ort.OrtInvalidArgument) as e:
                 raise ValueError(f"Failed to load ONNX model: {e}")
+            except Exception as e:
+                raise RuntimeError(f"Unexpected error loading ONNX model: {e}")
         elif not isinstance(model, ort.InferenceSession):
             raise TypeError("Provided model is not a valid ONNX InferenceSession or path to an ONNX model file.")
         super().__init__(model, input_size)
@@ -136,9 +148,12 @@ class ONNXModel(BaseModel):
         """
         Run inference using the ONNX model.
         """
-        ort_inputs = {self.model.get_inputs()[0].name: input_tensor.numpy()}
-        ort_outputs = self.model.run(None, ort_inputs)
-        return ort_outputs[0]
+        try:
+            ort_inputs = {self.model.get_inputs()[0].name: input_tensor.numpy()}
+            ort_outputs = self.model.run(None, ort_inputs)
+            return ort_outputs[0]
+        except Exception as e:
+            raise RuntimeError(f"Error during ONNX model inference: {e}")
 
 
 @ModelRegistry.register('tensorflow')
@@ -147,8 +162,10 @@ class TensorFlowModel(BaseModel):
         if isinstance(model, str):
             try:
                 model = tf.saved_model.load(model)
-            except Exception as e:
+            except (OSError, tf.errors.NotFoundError, ValueError) as e:
                 raise ValueError(f"Failed to load TensorFlow model: {e}")
+            except Exception as e:
+                raise RuntimeError(f"Unexpected error loading TensorFlow model: {e}")
         elif not isinstance(model, tf.Module):
             raise TypeError("Provided model is not a valid TensorFlow model or path to a TensorFlow model directory.")
         super().__init__(model, input_size)
@@ -157,15 +174,18 @@ class TensorFlowModel(BaseModel):
         """
         Run inference using the TensorFlow model.
         """
-        # Convert PyTorch tensor to NumPy array for TensorFlow
-        input_array = input_tensor.numpy()
-        input_array = tf.convert_to_tensor(input_array)
+        try:
+            # Convert PyTorch tensor to NumPy array for TensorFlow
+            input_array = input_tensor.numpy()
+            input_array = tf.convert_to_tensor(input_array)
 
-        # Assuming the TensorFlow model expects a dictionary input
-        outputs = self.model(input_array, training=False)
+            # Assuming the TensorFlow model expects a dictionary input
+            outputs = self.model(input_array, training=False)
 
-        # Assuming single output
-        return outputs[0].numpy()
+            # Assuming single output
+            return outputs[0].numpy()
+        except Exception as e:
+            raise RuntimeError(f"Error during TensorFlow model inference: {e}")
 
 
 class SegmentationModelAI:
@@ -181,8 +201,11 @@ class SegmentationModelAI:
         """
         Perform inference on the given image.
         """
-        input_tensor = ImageProcessor.preprocess_image(image, self.input_size)
-        return self.model.infer(input_tensor)
+        try:
+            input_tensor = ImageProcessor.preprocess_image(image, self.input_size)
+            return self.model.infer(input_tensor)
+        except Exception as e:
+            raise RuntimeError(f"Error during model inference: {e}")
 
 
 def get_torch_segmentation_model():
