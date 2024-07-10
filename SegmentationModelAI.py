@@ -75,6 +75,9 @@ class BaseModel(ABC):
 
     @abstractmethod
     def infer(self, input_tensor):
+        """
+        Run inference on the input tensor and return the output.
+        """
         pass
 
 
@@ -91,10 +94,12 @@ class ModelRegistry:
 
     @classmethod
     def create_model(cls, model, model_type, input_size=(512, 512)):
+        """
+        Create a model instance based on the specified type.
+        """
         if model_type not in cls._registry:
             raise ValueError(f"Model type '{model_type}' is not registered.")
 
-        # initialize accordingly the type of the model
         return cls._registry[model_type](model, input_size)
 
 
@@ -106,6 +111,9 @@ class TorchModel(BaseModel):
         super().__init__(model, input_size)
 
     def infer(self, input_tensor):
+        """
+        Run inference using the PyTorch model.
+        """
         self.model.eval()
         with torch.no_grad():
             output = self.model(input_tensor)
@@ -125,6 +133,9 @@ class ONNXModel(BaseModel):
         super().__init__(model, input_size)
 
     def infer(self, input_tensor):
+        """
+        Run inference using the ONNX model.
+        """
         ort_inputs = {self.model.get_inputs()[0].name: input_tensor.numpy()}
         ort_outputs = self.model.run(None, ort_inputs)
         return ort_outputs[0]
@@ -143,6 +154,9 @@ class TensorFlowModel(BaseModel):
         super().__init__(model, input_size)
 
     def infer(self, input_tensor):
+        """
+        Run inference using the TensorFlow model.
+        """
         # Convert PyTorch tensor to NumPy array for TensorFlow
         input_array = input_tensor.numpy()
         input_array = tf.convert_to_tensor(input_array)
@@ -156,8 +170,7 @@ class TensorFlowModel(BaseModel):
 
 class SegmentationModelAI:
     """
-    NOTE: The SegmentationModelAI class uses ModelRegistry.create_model to create the model, and it does not handle any
-    specific model type logic. This ensures that any new model class can be added without modifying SegmentationModelAI.
+    SegmentationModelAI class to handle multiple model platforms and inputs for semantic segmentation.
     """
 
     def __init__(self, model, model_type, input_size=(512, 512)):
@@ -165,6 +178,9 @@ class SegmentationModelAI:
         self.input_size = input_size
 
     def __call__(self, image):
+        """
+        Perform inference on the given image.
+        """
         input_tensor = ImageProcessor.preprocess_image(image, self.input_size)
         return self.model.infer(input_tensor)
 
