@@ -1,3 +1,45 @@
+"""
+Segmentation Model AI
+
+This module provides classes and utilities to facilitate inference with segmentation models across different platforms:
+- PyTorch models (`TorchModel`)
+- ONNX models (`ONNXModel`)
+- TensorFlow models (`TensorFlowModel`)
+
+The main class `SegmentationModelAI` integrates these model platforms through a unified interface, allowing seamless inference on images.
+
+Classes:
+--------
+- ImageProcessor: Utility class to handle image preprocessing and validation.
+- BaseModel (abstract class): Defines an interface for model inference.
+- ModelRegistry: Registry to manage different model types and their creation.
+- TorchModel: Implementation of BaseModel for PyTorch models.
+- ONNXModel: Implementation of BaseModel for ONNX models.
+- TensorFlowModel: Implementation of BaseModel for TensorFlow models.
+- SegmentationModelAI: High-level interface to load a model of a specified type and perform inference on images.
+
+Usage:
+------
+Instantiate SegmentationModelAI with a model and its type (torch, onnx, tensorflow), and call it with an image input to get segmentation results.
+
+Example:
+--------
+if __name__ == "__main__":
+    # Replace with your model paths or URLs
+    torch_model_path = 'path_to_your_torch_model.pth'
+    onnx_model_path = 'path_to_your_onnx_model.onnx'
+    tf_model_path = 'path_to_your_tf_model'
+
+    # Example using PyTorch model
+    pytorch_model = torch.load(torch_model_path)
+    segmentation_model = SegmentationModelAI(pytorch_model, 'torch')
+    try:
+        result = segmentation_model('path_to_your_image.jpg')
+        print(result)
+    except Exception as e:
+        print(f"Error during inference: {e}")
+"""
+
 import torch
 import onnxruntime as ort
 from torchvision import transforms, models
@@ -8,8 +50,15 @@ from io import BytesIO
 from abc import ABC, abstractmethod
 import tensorflow as tf
 
-
 class ImageProcessor:
+    """
+    Utility class for image preprocessing and validation.
+
+    Provides methods to load images from different sources (path, URL, bytes, PIL Image, torch Tensor),
+    preprocess them by resizing, normalizing, and converting to tensors, and validate image dimensions
+    and formats.
+    """
+
     @staticmethod
     def preprocess_image(image, size=(512, 512)):
         """
@@ -105,6 +154,12 @@ class ImageProcessor:
 
 
 class BaseModel(ABC):
+    """
+    Abstract base class for model inference.
+
+    Defines an interface for model inference and provides a structure for different model implementations.
+    """
+
     def __init__(self, model, input_size=(512, 512)):
         self.model = model
         self.input_size = input_size
@@ -118,10 +173,19 @@ class BaseModel(ABC):
 
 
 class ModelRegistry:
+    """
+    Registry for managing different model types and their creation.
+
+    Provides registration of model types and creation of model instances based on the specified type.
+    """
+
     _registry = {}
 
     @classmethod
     def register(cls, name):
+        """
+        Decorator to register a model type.
+        """
         def decorator(model_class):
             cls._registry[name] = model_class
             return model_class
@@ -141,6 +205,12 @@ class ModelRegistry:
 
 @ModelRegistry.register('torch')
 class TorchModel(BaseModel):
+    """
+    Implementation of BaseModel for PyTorch models.
+
+    Handles loading of PyTorch models and running inference.
+    """
+
     def __init__(self, model, input_size=(512, 512)):
         if not isinstance(model, torch.nn.Module):
             raise TypeError("Provided model is not a valid PyTorch model.")
@@ -162,6 +232,12 @@ class TorchModel(BaseModel):
 
 @ModelRegistry.register('onnx')
 class ONNXModel(BaseModel):
+    """
+    Implementation of BaseModel for ONNX models.
+
+    Handles loading of ONNX models and running inference.
+    """
+
     def __init__(self, model, input_size=(512, 512)):
         if isinstance(model, str):
             try:
@@ -189,6 +265,12 @@ class ONNXModel(BaseModel):
 
 @ModelRegistry.register('tensorflow')
 class TensorFlowModel(BaseModel):
+    """
+    Implementation of BaseModel for TensorFlow models.
+
+    Handles loading of TensorFlow models and running inference.
+    """
+
     def __init__(self, model, input_size=(512, 512)):
         if isinstance(model, str):
             try:
@@ -207,31 +289,58 @@ class TensorFlowModel(BaseModel):
         """
         try:
             input_tensor = ImageProcessor.validate_tensor(input_tensor)
-            # Convert PyTorch tensor to NumPy array for TensorFlow
             input_array = input_tensor.numpy()
             input_array = tf.convert_to_tensor(input_array)
-
-            # Assuming the TensorFlow model expects a dictionary input
             outputs = self.model(input_array, training=False)
-
-            # Assuming single output
-            return outputs[0].numpy()
+            return outputs[0].numpy()  # Assuming single output
         except Exception as e:
             raise RuntimeError(f"Error during TensorFlow model inference: {e}")
 
 
 class SegmentationModelAI:
     """
-    SegmentationModelAI class to handle multiple model platforms and inputs for semantic segmentation.
+    High-level interface to facilitate inference with segmentation models.
+
+    Integrates different model platforms (PyTorch, ONNX, TensorFlow) through a unified interface.
     """
 
     def __init__(self, model, model_type, input_size=(512, 512)):
+        """
+        Initialize the SegmentationModelAI instance with a model and its type.
+
+        Parameters:
+        -----------
+        model : str or object
+            Path to the model file or model object itself.
+        model_type : str
+            Type of the model ('torch', 'onnx', 'tensorflow').
+        input_size : tuple, optional
+            Input size of the image (default is (512, 512)).
+
+        Raises:
+        -------
+        ValueError if the model type is not registered.
+        """
         self.model = ModelRegistry.create_model(model, model_type, input_size)
         self.input_size = input_size
 
     def __call__(self, image):
         """
         Perform inference on the given image.
+
+        Parameters:
+        -----------
+        image : str or bytes or PIL.Image.Image or torch.Tensor
+            Input image to perform segmentation on.
+
+        Returns:
+        --------
+        Output segmentation results.
+
+        Raises:
+        -------
+        TypeError if the image input type is unsupported.
+        RuntimeError if an error occurs during image preprocessing or model inference.
         """
         try:
             image = ImageProcessor.load_image(image)
@@ -239,7 +348,9 @@ class SegmentationModelAI:
             input_tensor = ImageProcessor.preprocess_image(image, self.input_size)
             return self.model.infer(input_tensor)
         except Exception as e:
-            raise RuntimeError(f"Error during model inference: {e}")
+            raise RuntimeError(f"Error during inference: {e}")
+
+
 
 
 
