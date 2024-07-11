@@ -44,19 +44,22 @@ import torch
 import onnxruntime as ort
 from torchvision import transforms, models
 from PIL import Image
-import numpy as np
 import requests
 from io import BytesIO
 from abc import ABC, abstractmethod
 import tensorflow as tf
 
+
 class ImageProcessor:
     """
-    Utility class for image preprocessing and validation.
+    ImageProcessor: Utility class for image preprocessing and validation.
 
-    Provides methods to load images from different sources (path, URL, bytes, PIL Image, torch Tensor),
-    preprocess them by resizing, normalizing, and converting to tensors, and validate image dimensions
-    and formats.
+    This class provides methods for loading images from various sources (file path, URL, bytes, PIL Image, torch Tensor),
+    preprocessing them by resizing, normalizing, and converting to tensors, and validating image dimensions and formats.
+
+    To support additional image formats:
+        - Add new 'load_image_from...' methods for the specific formats.
+        - Modify the 'load_image' method to include these new formats if necessary.
     """
 
     @staticmethod
@@ -155,9 +158,16 @@ class ImageProcessor:
 
 class BaseModel(ABC):
     """
-    Abstract base class for model inference.
+    BaseModel: Abstract base class for model inference.
 
     Defines an interface for model inference and provides a structure for different model implementations.
+
+    To extend SegmentationModelAI for supporting more model types:
+        - Implement a new class inheriting from 'BaseModel'.
+        - Register the new model class with 'ModelRegistry' using '@ModelRegistry.register('model_type')'.
+        - Implement the 'infer' method to define model-specific inference logic.
+        - Add model-specific initialization and configuration in '__init__'.
+        - Ensure error handling for model loading and inference errors.
     """
 
     def __init__(self, model, input_size=(512, 512)):
@@ -174,9 +184,10 @@ class BaseModel(ABC):
 
 class ModelRegistry:
     """
-    Registry for managing different model types and their creation.
+    ModelRegistry: Registry for managing different model types and their creation.
 
-    Provides registration of model types and creation of model instances based on the specified type.
+    Provides registration of model types ('torch', 'onnx', 'tensorflow', and more if implemented) and creation of
+    model instances based on the specified type.
     """
 
     _registry = {}
@@ -186,6 +197,7 @@ class ModelRegistry:
         """
         Decorator to register a model type.
         """
+
         def decorator(model_class):
             cls._registry[name] = model_class
             return model_class
@@ -206,7 +218,7 @@ class ModelRegistry:
 @ModelRegistry.register('torch')
 class TorchModel(BaseModel):
     """
-    Implementation of BaseModel for PyTorch models.
+    TorchModel: Implementation of BaseModel for PyTorch models.
 
     Handles loading of PyTorch models and running inference.
     """
@@ -233,7 +245,7 @@ class TorchModel(BaseModel):
 @ModelRegistry.register('onnx')
 class ONNXModel(BaseModel):
     """
-    Implementation of BaseModel for ONNX models.
+    ONNXModel: Implementation of BaseModel for ONNX models.
 
     Handles loading of ONNX models and running inference.
     """
@@ -266,7 +278,7 @@ class ONNXModel(BaseModel):
 @ModelRegistry.register('tensorflow')
 class TensorFlowModel(BaseModel):
     """
-    Implementation of BaseModel for TensorFlow models.
+    TensorFlowModel: Implementation of BaseModel for TensorFlow models.
 
     Handles loading of TensorFlow models and running inference.
     """
@@ -299,9 +311,11 @@ class TensorFlowModel(BaseModel):
 
 class SegmentationModelAI:
     """
-    High-level interface to facilitate inference with segmentation models.
+    SegmentationModelAI: High-level interface for performing inference with segmentation models.
 
-    Integrates different model platforms (PyTorch, ONNX, TensorFlow) through a unified interface.
+    This class unifies the process of loading and running inference across different model platforms (PyTorch, ONNX,
+    TensorFlow). To support additional model types, refer to the BaseModel class docstring for implementation
+    details. No modifications to SegmentationModelAI are necessary.
     """
 
     def __init__(self, model, model_type, input_size=(512, 512)):
@@ -313,7 +327,8 @@ class SegmentationModelAI:
         model : str or object
             Path to the model file or model object itself.
         model_type : str
-            Type of the model ('torch', 'onnx', 'tensorflow').
+            Type of the model ('torch', 'onnx', 'tensorflow'). More types can be added
+            by implementing the required functionality.
         input_size : tuple, optional
             Input size of the image (default is (512, 512)).
 
@@ -349,9 +364,6 @@ class SegmentationModelAI:
             return self.model.infer(input_tensor)
         except Exception as e:
             raise RuntimeError(f"Error during inference: {e}")
-
-
-
 
 
 def get_torch_segmentation_model():
