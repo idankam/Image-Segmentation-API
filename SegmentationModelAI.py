@@ -4,7 +4,6 @@ Segmentation Model AI
 This module provides classes and utilities to facilitate inference with segmentation models across different platforms:
 - PyTorch models (`TorchModel`)
 - ONNX models (`ONNXModel`)
-- TensorFlow models (`TensorFlowModel`)
 
 The main class `SegmentationModelAI` integrates these model platforms through a unified interface, allowing seamless inference on images.
 
@@ -20,34 +19,52 @@ Classes:
 
 Usage:
 ------
-Instantiate SegmentationModelAI with a model and its type (torch, onnx, tensorflow), and call it with an image input to get segmentation results.
+Instantiate SegmentationModelAI with a model and its type (torch, onnx),
+and call it with an image input to get segmentation results.
 
 Example:
 --------
 if __name__ == "__main__":
-    # Replace with your model paths or URLs
-    torch_model_path = 'path_to_your_torch_model.pth'
-    onnx_model_path = 'path_to_your_onnx_model.onnx'
-    tf_model_path = 'path_to_your_tf_model'
+    from SegmentationModelAI import SegmentationModelAI, TorchModel, ONNXModel
 
-    # Example using PyTorch model
-    pytorch_model = torch.load(torch_model_path)
-    segmentation_model = SegmentationModelAI(pytorch_model, 'torch')
+    # Example using a PyTorch model
+    torch_model = TorchModel.get_torch_segmentation_model()
+    segmentation_model_torch = SegmentationModelAI(torch_model, model_type='torch', input_size=(512, 512))
     try:
-        result = segmentation_model('path_to_your_image.jpg')
-        print(result)
+        logits, pixels_distribution, seg_map, seg_map_image = segmentation_model_torch('path_to_your_image.jpg')
+        print(logits)
+        seg_map_image.save("file_name.jpg")
     except Exception as e:
-        print(f"Error during inference: {e}")
+        print(f"Error during PyTorch model inference: {e}")
+
+    # Example using an ONNX model
+    onnx_model = ONNXModel.get_onnx_converted_segmentation_model()
+    segmentation_model_onnx = SegmentationModelAI(onnx_model, model_type='onnx', input_size=(512, 512))
+    try:
+        logits, pixels_distribution, seg_map, seg_map_image = segmentation_model_onnx('path_to_your_image.jpg')
+        print(logits)
+        seg_map_image.save("file_name.jpg")
+    except Exception as e:
+        print(f"Error during ONNX model inference: {e}")
 """
+from typing import Tuple, Union
 
 import torch
 import onnxruntime as ort
+from PIL.Image import Image
+from torch import Tensor
 from torchvision import transforms, models
 from PIL import Image
+from pathlib import Path
 import requests
 from io import BytesIO
 from abc import ABC, abstractmethod
-import tensorflow as tf
+import numpy as np
+from torchvision.models.segmentation import deeplabv3
+
+from phase_1 import get_logits, ModelsTypes, get_pixel_category_distribution, get_segmentation_map, PHASE_1_ONNX_MODEL_PATH
+
+DEFAULT_IMAGE_SIZE = (512, 512)
 
 
 class ImageProcessor:
@@ -63,17 +80,30 @@ class ImageProcessor:
     """
 
     @staticmethod
-    def preprocess_image(image, size=(512, 512)):
+    def preprocess_image(image: Union[str, bytes, Image.Image, torch.Tensor],
+                         size: Tuple[int, int] = DEFAULT_IMAGE_SIZE) -> torch.Tensor:
         """
         Preprocess the input image by resizing, normalizing, and converting to tensor.
         """
+
+        if size[0] <= 0 or size[1] <= 0:
+            raise ValueError("Image size dimensions must be greater than zero.")
+
         image = ImageProcessor.load_image(image)
-        ImageProcessor.validate_image(image)
-        transform = ImageProcessor.get_transform(size)
-        return transform(image).unsqueeze(0)
+        if isinstance(image, torch.Tensor):
+            if image.ndim == 4:
+                return image  # Assuming tensor is already preprocessed and with correct dimensions (batched)
+            elif image.ndim == 3:
+                return image.unsqueeze(0)  # Assuming tensor is already preprocessed
+            else:
+                raise ValueError("Image (tensor type) dimensions 3 (single input) or 4 (already batched).")
+        else:
+            ImageProcessor.validate_image(image)
+            transform = ImageProcessor.get_transform(size)
+            return transform(image).unsqueeze(0)
 
     @staticmethod
-    def load_image(image):
+    def load_image(image: Union[str, bytes, Image.Image, torch.Tensor]) -> Union[Image, Tensor]:
         """
         Load the image from different formats (path, URL, bytes, PIL Image, torch Tensor).
         """
@@ -91,7 +121,7 @@ class ImageProcessor:
             )
 
     @staticmethod
-    def load_image_from_path_or_url(image_path_or_url):
+    def load_image_from_path_or_url(image_path_or_url: str) -> Image.Image:
         """
         Load the image from a file path or URL.
         """
@@ -107,7 +137,7 @@ class ImageProcessor:
             raise RuntimeError(f"Error loading image from path or URL: {e}")
 
     @staticmethod
-    def load_image_from_bytes(image_bytes):
+    def load_image_from_bytes(image_bytes: bytes) -> Image.Image:
         """
         Load the image from bytes.
         """
@@ -117,7 +147,7 @@ class ImageProcessor:
             raise RuntimeError(f"Error loading image from bytes: {e}")
 
     @staticmethod
-    def get_transform(size):
+    def get_transform(size: Tuple[int, int]) -> transforms.Compose:
         """
         Get the transformation pipeline.
         """
@@ -128,10 +158,12 @@ class ImageProcessor:
         ])
 
     @staticmethod
-    def validate_image(image):
+    def validate_image(image: Image.Image) -> None:
         """
         Validate the loaded image for expected dimensions and format.
         """
+        if isinstance(image, torch.Tensor):
+            return  # Assuming tensor is already preprocessed
         if not isinstance(image, Image.Image):
             raise TypeError("Input is not a valid PIL Image.")
         if image.mode != 'RGB':
@@ -139,10 +171,9 @@ class ImageProcessor:
         width, height = image.size
         if width < 1 or height < 1:
             raise ValueError("Image dimensions are invalid.")
-        # Add additional validation as needed
 
     @staticmethod
-    def validate_tensor(tensor):
+    def validate_tensor(tensor: torch.Tensor) -> torch.Tensor:
         """
         Validate the input tensor meets expected criteria.
         """
@@ -151,9 +182,18 @@ class ImageProcessor:
         if tensor.ndim != 4:
             raise ValueError("Input tensor dimensions are invalid. Expected 4D tensor.")
 
-        # Add additional validation for tensor shape, dtype, etc.
-
         return tensor
+
+    @staticmethod
+    def image_to_bytes(image_local_path: str) -> bytes:
+        """
+        Convert a local image file to bytes.
+        """
+        with Image.open(image_local_path) as img:
+            img = img.convert('RGB')  # Ensure the image is in RGB format
+            byte_arr = BytesIO()
+            img.save(byte_arr, format='JPEG')  # Save the image to the BytesIO object in JPEG format
+            return byte_arr.getvalue()
 
 
 class BaseModel(ABC):
@@ -170,14 +210,14 @@ class BaseModel(ABC):
         - Ensure error handling for model loading and inference errors.
     """
 
-    def __init__(self, model, input_size=(512, 512)):
+    def __init__(self, model, input_size: Tuple[int, int] = DEFAULT_IMAGE_SIZE) -> None:
         self.model = model
         self.input_size = input_size
 
     @abstractmethod
-    def infer(self, input_tensor):
+    def infer(self, input_tensor: torch.Tensor) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Image.Image]:
         """
-        Run inference on the input tensor and return the output.
+        Run inference on the input tensor and return the output (logits, pixels_distribution, seg_map, seg_map_image).
         """
         pass
 
@@ -186,26 +226,27 @@ class ModelRegistry:
     """
     ModelRegistry: Registry for managing different model types and their creation.
 
-    Provides registration of model types ('torch', 'onnx', 'tensorflow', and more if implemented) and creation of
-    model instances based on the specified type.
+    Provides registration of model types ('torch', 'onnx', and more if implemented)
+    and creation of model instances based on the specified type.
     """
 
     _registry = {}
 
     @classmethod
-    def register(cls, name):
+    def register(cls, name: str) -> callable:
         """
         Decorator to register a model type.
         """
 
-        def decorator(model_class):
+        def decorator(model_class: callable) -> callable:
             cls._registry[name] = model_class
             return model_class
 
         return decorator
 
     @classmethod
-    def create_model(cls, model, model_type, input_size=(512, 512)):
+    def create_model(cls, model: Union[str, object], model_type: str,
+                     input_size: Tuple[int, int] = DEFAULT_IMAGE_SIZE) -> BaseModel:
         """
         Create a model instance based on the specified type.
         """
@@ -223,23 +264,60 @@ class TorchModel(BaseModel):
     Handles loading of PyTorch models and running inference.
     """
 
-    def __init__(self, model, input_size=(512, 512)):
+    def __init__(self, model: torch.nn.Module, input_size: Tuple[int, int] = DEFAULT_IMAGE_SIZE) -> None:
         if not isinstance(model, torch.nn.Module):
-            raise TypeError("Provided model is not a valid PyTorch model.")
+            raise TypeError(f"Provided model is not a valid PyTorch model. model type is: {type(model)}")
+        if not isinstance(model, deeplabv3.DeepLabV3):
+            raise TypeError(f"Provided model is not a valid segmentation model. model type is: {type(model)}")
         super().__init__(model, input_size)
 
-    def infer(self, input_tensor):
+    def infer(self, input_tensor: torch.Tensor) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Image.Image]:
         """
         Run inference using the PyTorch model.
+
+        Parameters:
+        input_tensor (torch.Tensor): The preprocessed input tensor to be fed into the PyTorch model.
+                                     The tensor should be validated before being used for inference.
+
+        Returns:
+        tuple:
+            - logits (numpy.ndarray): The raw output logits from the PyTorch model.
+            - pixels_distribution (numpy.ndarray): The distribution of pixel categories derived from the logits.
+            - seg_map (numpy.ndarray): The segmentation map created from the logits, representing the
+                                      predicted class for each pixel.
+            - seg_map_image (PIL.Image.Image): The segmentation map converted to an image format for
+                                               visualization.
+
+        Raises:
+        RuntimeError: If an error occurs during the inference process.
         """
+
+        input_tensor = ImageProcessor.validate_tensor(input_tensor)
+
+        # Check input tensor size
+        if tuple(input_tensor.shape[-2:]) != self.input_size:
+            raise ValueError(
+                f"Input tensor size {tuple(input_tensor.shape[-2:])} does not match expected input size {self.input_size} of this model.")
+
         try:
-            input_tensor = ImageProcessor.validate_tensor(input_tensor)
             self.model.eval()
             with torch.no_grad():
                 output = self.model(input_tensor)
-            return output
+
+            logits = get_logits(output, ModelsTypes.TORCH)
+            pixels_distribution = get_pixel_category_distribution(logits)
+            seg_map_image, seg_map = get_segmentation_map(logits, self.input_size)
+
+            return logits, pixels_distribution, seg_map, seg_map_image
         except Exception as e:
             raise RuntimeError(f"Error during PyTorch model inference: {e}")
+
+    @staticmethod
+    def get_torch_segmentation_model() -> torch.nn.Module:
+        weights = models.segmentation.DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT  # Get the most up-to-date weights
+        model = models.segmentation.deeplabv3_mobilenet_v3_large(weights=weights)
+        model.eval()  # Set model to evaluation mode
+        return model
 
 
 @ModelRegistry.register('onnx')
@@ -250,63 +328,48 @@ class ONNXModel(BaseModel):
     Handles loading of ONNX models and running inference.
     """
 
-    def __init__(self, model, input_size=(512, 512)):
-        if isinstance(model, str):
+    def __init__(self, model: str or Path or ort.InferenceSession,
+                 input_size: Tuple[int, int] = DEFAULT_IMAGE_SIZE) -> None:
+        if isinstance(model, str) or isinstance(model, Path):
             try:
                 model = ort.InferenceSession(model)
-            except (IOError, ort.OrtInvalidModel, ort.OrtInvalidArgument) as e:
-                raise ValueError(f"Failed to load ONNX model: {e}")
             except Exception as e:
                 raise RuntimeError(f"Unexpected error loading ONNX model: {e}")
         elif not isinstance(model, ort.InferenceSession):
-            raise TypeError("Provided model is not a valid ONNX InferenceSession or path to an ONNX model file.")
+            raise TypeError(f"Provided model is not a valid ONNX InferenceSession or path to an ONNX model file. "
+                            f"model type is: {type(model)}")
         super().__init__(model, input_size)
 
-    def infer(self, input_tensor):
+    def infer(self, input_tensor: torch.Tensor) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Image.Image]:
         """
-        Run inference using the ONNX model.
+        Run inference using the ONNX model and return segmentation map as output.
         """
+
+        input_tensor = ImageProcessor.validate_tensor(input_tensor)
+
+        # Check input tensor size
+        if tuple(input_tensor.shape[-2:]) != self.input_size:
+            raise ValueError(
+                f"Input tensor size {tuple(input_tensor.shape[-2:])} does not match"
+                f" expected input size {self.input_size} of this model.")
+
         try:
-            input_tensor = ImageProcessor.validate_tensor(input_tensor)
-            ort_inputs = {self.model.get_inputs()[0].name: input_tensor.numpy()}
-            ort_outputs = self.model.run(None, ort_inputs)
-            return ort_outputs[0]
+            input_name = self.model.get_inputs()[0].name
+            output_name = self.model.get_outputs()[0].name
+            result = self.model.run([output_name], {input_name: input_tensor.numpy()})
+
+            logits = get_logits(result[0], ModelsTypes.ONNX)
+            pixels_distribution = get_pixel_category_distribution(logits)
+            seg_map_image, seg_map = get_segmentation_map(logits, self.input_size)
+
+            return logits, pixels_distribution, seg_map, seg_map_image
         except Exception as e:
             raise RuntimeError(f"Error during ONNX model inference: {e}")
 
-
-@ModelRegistry.register('tensorflow')
-class TensorFlowModel(BaseModel):
-    """
-    TensorFlowModel: Implementation of BaseModel for TensorFlow models.
-
-    Handles loading of TensorFlow models and running inference.
-    """
-
-    def __init__(self, model, input_size=(512, 512)):
-        if isinstance(model, str):
-            try:
-                model = tf.saved_model.load(model)
-            except (OSError, tf.errors.NotFoundError, ValueError) as e:
-                raise ValueError(f"Failed to load TensorFlow model: {e}")
-            except Exception as e:
-                raise RuntimeError(f"Unexpected error loading TensorFlow model: {e}")
-        elif not isinstance(model, tf.Module):
-            raise TypeError("Provided model is not a valid TensorFlow model or path to a TensorFlow model directory.")
-        super().__init__(model, input_size)
-
-    def infer(self, input_tensor):
-        """
-        Run inference using the TensorFlow model.
-        """
-        try:
-            input_tensor = ImageProcessor.validate_tensor(input_tensor)
-            input_array = input_tensor.numpy()
-            input_array = tf.convert_to_tensor(input_array)
-            outputs = self.model(input_array, training=False)
-            return outputs[0].numpy()  # Assuming single output
-        except Exception as e:
-            raise RuntimeError(f"Error during TensorFlow model inference: {e}")
+    @staticmethod
+    def get_onnx_converted_segmentation_model(onnx_model_path: Path = PHASE_1_ONNX_MODEL_PATH) -> ort.InferenceSession:
+        onnx_model = ort.InferenceSession(onnx_model_path)
+        return onnx_model
 
 
 class SegmentationModelAI:
@@ -318,7 +381,7 @@ class SegmentationModelAI:
     details. No modifications to SegmentationModelAI are necessary.
     """
 
-    def __init__(self, model, model_type, input_size=(512, 512)):
+    def __init__(self, model: Union[str, object], model_type: str, input_size: Tuple[int, int] = DEFAULT_IMAGE_SIZE) -> None:
         """
         Initialize the SegmentationModelAI instance with a model and its type.
 
@@ -327,7 +390,7 @@ class SegmentationModelAI:
         model : str or object
             Path to the model file or model object itself.
         model_type : str
-            Type of the model ('torch', 'onnx', 'tensorflow'). More types can be added
+            Type of the model ('torch', 'onnx'). More types can be added
             by implementing the required functionality.
         input_size : tuple, optional
             Input size of the image (default is (512, 512)).
@@ -339,7 +402,7 @@ class SegmentationModelAI:
         self.model = ModelRegistry.create_model(model, model_type, input_size)
         self.input_size = input_size
 
-    def __call__(self, image):
+    def __call__(self, image: Union[str, bytes, Image.Image, torch.Tensor], resize_to: Tuple[int, int] = DEFAULT_IMAGE_SIZE) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Image.Image]:
         """
         Perform inference on the given image.
 
@@ -355,40 +418,45 @@ class SegmentationModelAI:
         Raises:
         -------
         TypeError if the image input type is unsupported.
+        ValueError if the image input type is invalid.
         RuntimeError if an error occurs during image preprocessing or model inference.
         """
+
+        image = ImageProcessor.load_image(image)
+        ImageProcessor.validate_image(image)
+        input_tensor = ImageProcessor.preprocess_image(image, resize_to)
+
         try:
-            image = ImageProcessor.load_image(image)
-            ImageProcessor.validate_image(image)
-            input_tensor = ImageProcessor.preprocess_image(image, self.input_size)
             return self.model.infer(input_tensor)
+        except ValueError as e:
+            raise ValueError(f"Error during SegmentationModelAI inference: {e}. input_tensor value is invalid.")
         except Exception as e:
             raise RuntimeError(f"Error during inference: {e}")
 
 
-def get_torch_segmentation_model():
-    weights = models.segmentation.DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT  # Get the most up-to-date weights
-    model = models.segmentation.deeplabv3_mobilenet_v3_large(weights=weights)
-    model.eval()  # Set model to evaluation mode
-    return model
-
-
+# example of simple use with different images types:
 def main():
-    torch_model = get_torch_segmentation_model()
-    onnx_model_path = 'deeplabv3_mobilenet_v3_large.onnx'
-    onnx_model = ort.InferenceSession(onnx_model_path)
+    torch_model = TorchModel.get_torch_segmentation_model()
+    onnx_model = ONNXModel.get_onnx_converted_segmentation_model()
 
-    # # Using Torch model
-    # model = SegmentationModelAI(torch_model, model_type='torch', input_size=(512, 512))
-    # result = model('path/to/image.jpg')  # Local image
-    # result = model('http://example.com/image.jpg')  # Image URL
-    # result = model(image_bytes)  # Image bytes
-    #
-    # # Using ONNX model
-    # model = SegmentationModelAI(onnx_model, model_type='onnx', input_size=(512, 512))
-    # result = model('path/to/image.jpg')  # Local image
-    # result = model('http://example.com/image.jpg')  # Image URL
-    # result = model(image_bytes)  # Image bytes
+    # Using Torch model
+    model = SegmentationModelAI(torch_model, model_type='torch', input_size=(512, 512))
+    logits, pixels_distribution, seg_map, seg_map_image = model('images/dog1.jpg')  # Local image
+    logits, pixels_distribution, seg_map, seg_map_image = model(
+        'https://pickture.co.il/wp-content/uploads/2023/04/%D7%AA%D7%9E%D7%95%D7%A0%D7%94-%D7%A9%D7%9C-%D7%9B%D7%9C%D7%91-15-768x768.jpg')  # Image URL
+    logits, pixels_distribution, seg_map, seg_map_image = model(
+        ImageProcessor.image_to_bytes("images/dog1.jpg"))  # Image bytes
+
+    # Using ONNX model
+    model = SegmentationModelAI(onnx_model, model_type='onnx', input_size=(512, 512))
+    logits, pixels_distribution, seg_map, seg_map_image = model('images/dog1.jpg')  # Local image
+    logits, pixels_distribution, seg_map, seg_map_image = model(
+        'https://pickture.co.il/wp-content/uploads/2023/04/%D7%AA%D7%9E%D7%95%D7%A0%D7%94-%D7%A9%D7%9C-%D7%9B%D7%9C'
+        '%D7%91-15-768x768.jpg')  # Image URL
+    logits, pixels_distribution, seg_map, seg_map_image = model(
+        ImageProcessor.image_to_bytes("images/dog1.jpg"))  # Image bytes
+
+    # print / save / display the results (:
 
 
 if __name__ == '__main__':
