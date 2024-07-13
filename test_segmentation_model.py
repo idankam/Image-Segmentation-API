@@ -41,7 +41,7 @@ class TestImageProcessor(unittest.TestCase):
 
 class TestSegmentationModelAI(unittest.TestCase):
     def test_torch_inference(self):
-        model = TorchModel.get_torch_segmentation_model()
+        model = TorchModel.get_default_torch_segmentation_model()
         seg_model_ai = SegmentationModelAI(model, 'torch')
 
         # Mock an image
