@@ -2,7 +2,7 @@
 
 ## Phase 3 - FastAPI Inference Documentation
 
-This API provides endpoints to perform image segmentation inference using either ONNX or Torch models. The results can be requested in various formats such as logits, pixel distribution, or segmentation maps.
+This API provides endpoints to perform image segmentation inference using either ONNX or Torch models. The results can be requested in various formats such as logits, pixel category distribution, or segmentation maps.
 
 ### Base URL
 
@@ -57,10 +57,16 @@ Performs image segmentation inference using an image provided via a URL.
     }
 }
 ```
+- `401 Unauthorized`
+```json
+{
+    "detail": "Fail! Value error: <Error message>"
+}
+```
 - `500 Internal Server Error`
 ```json
 {
-    "detail": "Error message"
+    "detail": "Fail! Error: <Error message>"
 }
 ```
 
@@ -95,13 +101,13 @@ Performs image segmentation inference using an uploaded image file.
 - `401 Unauthorized`
 ```json
 {
-    "detail": "Fail! Value error: Error message"
+    "detail": "Fail! Value error: <Error message>"
 }
 ```
 - `500 Internal Server Error`
 ```json
 {
-    "detail": "Fail! Error: Error message"
+    "detail": "Fail! Error: <Error message>"
 }
 ```
 
