@@ -30,7 +30,7 @@ The project consists of several phases, each building upon the previous one:
     - Health check (`/healthcheck`).
     - Inference from URL (`/infer/url`).
     - Inference from uploaded file (`/infer/file`).
-  - Handles input validation, model selection (PyTorch or ONNX), and result types choosing (logits, pixels category distribution, segmentation map).
+  - Handles input validation, model selection (PyTorch or ONNX), and result types selection (logits, pixels category distribution, segmentation map).
 
 ### Example Client Usage
 
