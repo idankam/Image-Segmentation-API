@@ -1,0 +1,12 @@
+fastapi==0.95.2
+pydantic==1.10.8
+Pillow==9.4.0
+torch==2.0.1
+torchvision==0.15.2
+onnx==1.13.1
+onnxruntime==1.14.1
+numpy>=1.21.6,<2.0
+matplotlib==3.7.1
+requests==2.31.0
+uvicorn==0.22.0
+unittest2==1.1.0
