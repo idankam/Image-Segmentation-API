@@ -83,8 +83,8 @@ To run the project locally:
 - **Endpoint**: `/infer/url`
 - **Method**: POST
 - **Parameters**:
-  - `infer_model_type`: Type of the segmentation model (`torch` or `onnx`).
-  - `requested_results_types`: List of requested results (`logits`, `pixels_distribution`, `segmentation_map`).
+  - `infer_model_type`: Type of the segmentation model ("torch" or "onnx").
+  - `requested_results_types`: List of requested results ("logits", "pixels_distribution", "segmentation_map").
   - `url_image`: URL of the image to perform inference on.
 
 ### File-based Image Inference
@@ -92,8 +92,8 @@ To run the project locally:
 - **Endpoint**: `/infer/file`
 - **Method**: POST
 - **Parameters**:
-  - `infer_model_type`: Type of the segmentation model (`torch` or `onnx`).
-  - `requested_results_types`: List of requested results (`logits`, `pixels_distribution`, `segmentation_map`).
+  - `infer_model_type`: Type of the segmentation model ("torch" or "onnx").
+  - `requested_results_types`: List of requested results ("logits", "pixels_distribution", "segmentation_map").
   - `file`: Uploaded image file.
 
 ## Example Usage
@@ -142,8 +142,8 @@ Checks if the server is live and responding.
 Performs image segmentation inference using an image provided via a URL.
 
 **Parameters:**
-- `infer_model_type` (Form field, `str`, required): The type of model to use for inference (`onnx` or `torch`).
-- `requested_results_types` (Form field, `List`, optional): List of result types to return (`logits`, `pixels_distribution`, `segmentation_map`). If not provided, all result types will be returned.
+- `infer_model_type` (Form field, `str`, required): The type of model to use for inference ("torch" or "onnx").
+- `requested_results_types` (Form field, `List`, optional): List of result types to return ("logits", "pixels_distribution", "segmentation_map"). If not provided, all result types will be returned.
 - `url_image` (Form field, `str`, required): The URL of the image to perform inference on.
 
 **Response:**
@@ -183,8 +183,8 @@ Performs image segmentation inference using an image provided via a URL.
 Performs image segmentation inference using an uploaded image file.
 
 **Parameters:**
-- `infer_model_type` (Form field, `str`, required): The type of model to use for inference (`onnx` or `torch`).
-- `requested_results_types` (Form field, `List`, optional): List of result types to return (`logits`, `pixels_distribution`, `segmentation_map`). If not provided, all result types will be returned.
+- `infer_model_type` (Form field, `str`, required): The type of model to use for inference ("torch" or "onnx").
+- `requested_results_types` (Form field, `List`, optional): List of result types to return ("logits", "pixels_distribution", "segmentation_map"). If not provided, all result types will be returned.
 - `file` (File, required): The image file to perform inference on.
 
 **Response:**
