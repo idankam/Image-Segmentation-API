@@ -129,8 +129,10 @@ async def infer_from_url(
     """
     try:
         return perform_infer(infer_model_type, requested_results_types, 'url', url_image)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Fail! Value error: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Fail! Error: {str(e)}")
 
 
 @app.post("/infer/file")
