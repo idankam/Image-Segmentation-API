@@ -65,7 +65,7 @@ To run the project locally:
    python phase_3_client_exampe.py
    ```
 
-## API Endpoints short documentation:
+## API Endpoints short documentation (phase 3):
 
 ### Health Check
 
@@ -98,7 +98,7 @@ See `phase_3_client_example.py` for example usage of both URL-based and file-bas
 
 
 
-## Phase 3 - API Endpoints detailed Documentation
+## API Endpoints detailed Documentation (phase 3):
 
 This API provides endpoints to perform image segmentation inference using either ONNX or Torch models. The results can be requested in various formats such as logits, pixel category distribution, or segmentation maps.
 
