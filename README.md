@@ -119,6 +119,6 @@ All endpoints return appropriate HTTP status codes. In case of errors, the respo
 ### Usage Example
 
 **python client script**
-Check phase_3_client_example.py for more details. Should be used from IDE for visualize.
+- Check phase_3_client_example.py for more details. Should be used from IDE for visualize.
 
-Alternatives: use curl or postman.
+- Alternatives: use curl or postman.
