@@ -125,6 +125,33 @@ All endpoints return appropriate HTTP status codes. In case of errors, the respo
 ### Usage Example
 
 **python client script**
+
+```python
+    # send image from url:
+    data = {
+        "infer_model_type": infer_model_type,
+        "requested_results_types": requested_results_types,
+        "url_image": image_url
+    }
+
+    # Send the POST request
+    response = requests.post(url, data=data)
+```
+
+```python
+    # send image file:
+    file_path = r"your/image.jpg"
+    data = {
+        "infer_model_type": infer_model_type,
+        "requested_results_types": requested_results_types,
+    }
+    files = {
+        "file": (file_path.split('/')[-1], open(file_path, "rb"), "image/jpeg")
+    }
+
+    # Send the POST request
+    response = requests.post(url, data=data, files=files)
+```
 - Check phase_3_client_example.py for more details. Should be used from IDE for visualize.
 
 - Alternatives: use curl or postman.
