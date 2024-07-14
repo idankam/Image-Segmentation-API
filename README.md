@@ -1,6 +1,101 @@
 
+# Image Segmentation Inference API using FastAPI and PyTorch/ONNX
 
-## Phase 3 - FastAPI Inference Documentation
+This project implements an API for performing image segmentation inference using PyTorch and ONNX models, integrated with FastAPI. The API allows inference from both URL-based and file-based image inputs.
+
+## Project Structure
+
+The project consists of several phases, each building upon the previous one:
+
+### Phase 1: Model Conversion and Comparison
+
+- **`phase_1.py`**: 
+  - Converts a PyTorch segmentation model to ONNX format.
+  - Compares inference results between the original PyTorch model and the ONNX converted model.
+  - Visualizes segmentation maps for qualitative comparison.
+
+### Phase 2: Wrapper class - SegmentationModelAI
+
+- **`phase_2.py`**:
+  - This module provides classes and utilities to facilitate inference with segmentation models across different platforms and image input types.
+  - The main class `SegmentationModelAI` integrates these model platforms through a unified interface, allowing seamless inference on images.
+  - Implements unit tests (`phase_2_tests.py`) to validate model inference, ensuring correctness across different input sizes and types.
+  - for more information check the detailed docstrings in phase_2.py.
+
+### Phase 3: FastAPI Integration for Inference Service
+
+- **`phase_3.py`**:
+  - Implements a FastAPI application for serving segmentation model inferences.
+  - Defines endpoints for:
+    - Health check (`/healthcheck`).
+    - Inference from URL (`/infer/url`).
+    - Inference from uploaded file (`/infer/file`).
+  - Handles input validation, model selection (PyTorch or ONNX), and result types choosing (logits, pixels category distribution, segmentation map).
+
+### Example Client Usage
+
+- **`phase_3_client_example.py`**:
+  - Provides example usage of the API endpoints:
+    - **URL-based Inference**: Infers segmentation from an image URL.
+    - **File-based Inference**: Infers segmentation from an uploaded image file.
+  - Demonstrates how to send requests to the API, handle responses, and visualize segmentation maps using `matplotlib`.
+
+## Getting Started
+
+To run the project locally:
+
+1. Clone this repository:
+   ```
+   git clone https://github.com/idankam/Image-Segmentation-API.git
+   cd <repository-directory>
+   ```
+
+2. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+3. Run the FastAPI server:
+   ```
+   uvicorn phase_3:app --reload
+   ```
+
+4. Use the example client (`phase_3_client_example.py`) to test the API endpoints.
+
+## API Endpoints short documentation:
+
+### Health Check
+
+- **Endpoint**: `/healthcheck`
+- **Method**: GET
+- **Description**: Verify if the server is live.
+
+### URL-based Image Inference
+
+- **Endpoint**: `/infer/url`
+- **Method**: POST
+- **Parameters**:
+  - `infer_model_type`: Type of the segmentation model (`torch` or `onnx`).
+  - `requested_results_types`: List of requested results (`logits`, `pixels_distribution`, `segmentation_map`).
+  - `url_image`: URL of the image to perform inference on.
+
+### File-based Image Inference
+
+- **Endpoint**: `/infer/file`
+- **Method**: POST
+- **Parameters**:
+  - `infer_model_type`: Type of the segmentation model (`torch` or `onnx`).
+  - `requested_results_types`: List of requested results (`logits`, `pixels_distribution`, `segmentation_map`).
+  - `file`: Uploaded image file.
+
+## Example Usage
+
+See `phase_3_client_example.py` for example usage of both URL-based and file-based image inference.
+
+
+
+
+## Phase 3 - API Endpoints detailed Documentation
 
 This API provides endpoints to perform image segmentation inference using either ONNX or Torch models. The results can be requested in various formats such as logits, pixel category distribution, or segmentation maps.
 
@@ -49,7 +144,7 @@ Performs image segmentation inference using an image provided via a URL.
 {
     "Status": "OK",
     "infer_model_type": "<infer_model_type>",
-    "url": "<url_image>",
+    "image_type": "url",
     "requested_results": {
         "logits": [...],
         "pixels_distribution": [...],
@@ -90,7 +185,7 @@ Performs image segmentation inference using an uploaded image file.
 {
     "Status": "OK",
     "infer_model_type": "<infer_model_type>",
-    "file": "<file_name>",
+    "image_type": "file",
     "requested_results": {
         "logits": [...],
         "pixels_distribution": [...],
