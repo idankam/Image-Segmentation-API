@@ -5,10 +5,14 @@ from PIL import Image
 import io
 import os
 
-from SegmentationModelAI import ONNXModel, SegmentationModelAI, TorchModel
+from phase_2 import ONNXModel, SegmentationModelAI, TorchModel
 
 
 class InferRequest:
+    """
+        Class to handle the inference request, validate input, set model instance,
+        perform inference, and format the results.
+    """
     def __init__(self, infer_model_type, requested_results, image_type, image_data) -> None:
         self.infer_model_type = infer_model_type
         self.requested_results = self.validate_requested_results(requested_results)
@@ -19,12 +23,17 @@ class InferRequest:
 
     @staticmethod
     def validate_requested_results(requested_results):
-        # if not specified - return all result types
+        """
+            Validate and set default requested results if not provided.
+        """
         if requested_results is None or len(requested_results) == 0:
             requested_results = ["logits", "pixels_distribution", "segmentation_map"]
         return requested_results
 
     def set_SegmentationModelAI_instance(self):
+        """
+            Initialize the SegmentationModelAI instance based on the model type.
+        """
         if self.infer_model_type == "onnx":
             onnx_model = ONNXModel.get_default_onnx_converted_segmentation_model()
             self.model = SegmentationModelAI(onnx_model, model_type='onnx', input_size=(512, 512))
@@ -41,6 +50,9 @@ class InferRequest:
             raise ValueError(f"Model type '{self.infer_model_type}' is not registered.")
 
     def __str__(self):
+        """
+            String representation of the InferRequest object for debugging purposes.
+        """
         res = ""
         res += f"infer_model_type: {self.infer_model_type}\n"
         res += f"requested_results: {self.requested_results}\n"
@@ -54,14 +66,18 @@ class InferRequest:
         return res
 
     def infer(self):
+        """
+            Perform the inference using the selected model and store the results.
+        """
         logits, pixels_distribution, seg_map, _ = self.model(self.image_data)
         results = {'logits': logits.tolist(), 'pixels_distribution': pixels_distribution.tolist(),
                    'segmentation_map': seg_map.tolist()}
         self.infer_results = results
 
     def get_requested_results(self):
-
-        # Prepare the results based on the requested results
+        """
+            Extract the requested results from the inference output.
+        """
         inference_results = {}
         for result_type in self.requested_results or []:
             if result_type == "logits":
@@ -80,6 +96,9 @@ app = FastAPI()
 
 
 def perform_infer(infer_model_type, requested_results_types, image_type, image_data):
+    """
+    Perform the inference process and return the results
+    """
     request = InferRequest(infer_model_type, requested_results_types, image_type, image_data)
     request.set_SegmentationModelAI_instance()
     request.infer()
@@ -87,18 +106,15 @@ def perform_infer(infer_model_type, requested_results_types, image_type, image_d
 
     return {"Status": "OK",
             "infer_model_type": request.infer_model_type,
-            image_type: request.image_type,
+            "image_type": request.image_type,
             "requested_results": inference_results}
-
-
-@app.get("/")
-def read_root():
-    current_dir = os.getcwd()
-    return {"current_directory": current_dir}
 
 
 @app.get("/healthcheck")
 def health_check():
+    """
+        Health check endpoint to verify if the server is live.
+    """
     return {"status": "live"}
 
 
@@ -108,6 +124,9 @@ async def infer_from_url(
         requested_results_types: List = Form(None),
         url_image: str = Form(...),
 ):
+    """
+        Endpoint to perform inference from an image URL.
+    """
     try:
         return perform_infer(infer_model_type, requested_results_types, 'url', url_image)
     except Exception as e:
@@ -120,6 +139,9 @@ async def infer_from_file(
         requested_results_types: List = Form(None),
         file: UploadFile = File(...),
 ):
+    """
+    Endpoint to perform inference from an uploaded image file.
+    """
     try:
         image_content = await file.read()
         return perform_infer(infer_model_type, requested_results_types, 'file', image_content)
