@@ -60,7 +60,10 @@ To run the project locally:
    uvicorn phase_3:app --reload
    ```
 
-4. Use the example client (`phase_3_client_example.py`) to test the API endpoints.
+4. Use the example client (`phase_3_client_example.py`) to test the API endpoints:
+   ```
+   python phase_3_client_exampe.py
+   ```
 
 ## API Endpoints short documentation:
 
@@ -219,7 +222,16 @@ All endpoints return appropriate HTTP status codes. In case of errors, the respo
 
 ### Usage Example
 
-**python client script**
+Run the FastAPI server:
+   ```
+   uvicorn phase_3:app --reload
+   ```
+run client script (make sure to download requirements first):
+   ```
+   python phase_3_client_exampe.py
+   ```
+
+**python client script example**
 
 ```python
     # send image from url:
@@ -247,6 +259,7 @@ All endpoints return appropriate HTTP status codes. In case of errors, the respo
     # Send the POST request
     response = requests.post(url, data=data, files=files)
 ```
-- Check phase_3_client_example.py for more details. Should be used from IDE for visualize.
+- Check phase_3_client_example.py for more details.
 
-- Alternatives: use curl or postman.
+
+**Alternatives: use curl or postman.**
