@@ -5,7 +5,8 @@ This module provides classes and utilities to facilitate inference with segmenta
 - PyTorch models (`TorchModel`)
 - ONNX models (`ONNXModel`)
 
-The main class `SegmentationModelAI` integrates these model platforms through a unified interface, allowing seamless inference on images.
+The main class `SegmentationModelAI` integrates these model platforms through a unified interface,
+allowing seamless inference on images.
 
 Classes:
 --------
