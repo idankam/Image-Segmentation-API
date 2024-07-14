@@ -47,7 +47,7 @@ To run the project locally:
 1. Clone this repository:
    ```
    git clone https://github.com/idankam/Image-Segmentation-API.git
-   cd <repository-directory>
+   cd Image-Segmentation-API
    ```
 
 2. Install dependencies:
@@ -55,12 +55,17 @@ To run the project locally:
    pip install -r requirements.txt
    ```
 
-3. Run the FastAPI server:
+3. Run tests:
+   ```
+   python phase_2_tests.py
+   ```
+   
+4. Run the FastAPI server:
    ```
    uvicorn phase_3:app --reload
    ```
 
-4. Use the example client (`phase_3_client_example.py`) to test the API endpoints:
+5. Use the example client (`phase_3_client_example.py`) to test the API endpoints:
    ```
    python phase_3_client_exampe.py
    ```
