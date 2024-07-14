@@ -1,5 +1,5 @@
 """
-Segmentation Model AI
+PHASE 2
 
 This module provides classes and utilities to facilitate inference with segmentation models across different platforms:
 - PyTorch models (`TorchModel`)
