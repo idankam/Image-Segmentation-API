@@ -118,25 +118,7 @@ All endpoints return appropriate HTTP status codes. In case of errors, the respo
 
 ### Usage Example
 
-**Infer from URL Example:**
+**python client script**
+Check phase_3_client_example.py for more details. Should be used from IDE for visualize.
 
-```bash
-curl -X POST "http://localhost:8000/infer/url" \
--H "accept: application/json" \
--H "Content-Type: application/x-www-form-urlencoded" \
--d "infer_model_type=onnx&url_image=https://example.com/image.jpg&requested_results_types=logits&requested_results_types=pixels_distribution"
-```
-
-**Infer from File Example:**
-
-```bash
-curl -X POST "http://localhost:8000/infer/file" \
--H "accept: application/json" \
--H "Content-Type: multipart/form-data" \
--F "infer_model_type=torch" \
--F "requested_results_types=logits" \
--F "requested_results_types=pixels_distribution" \
--F "file=@/path/to/image.jpg"
-```
-
-This documentation provides an overview of the available endpoints, their parameters, and example usage to help you interact with the API effectively.
+Alternatives: use curl or postman.
